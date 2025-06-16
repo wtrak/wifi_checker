@@ -102,7 +102,7 @@
         const img = new Image(); img.onload = () => update("captive", "No"); img.onerror = () => update("captive", "Likely", true); img.src = "https://www.gstatic.com/generate_204?" + new Date().getTime();
 
         try {
-          const ipInfo = await fetch("https://ipinfo.io/json?token=6e4e15a8c9a780");
+          const ipInfo = await fetch("https://ipinfo.io/json?token=972e4da70725fe");
           const data = await ipInfo.json();
           update("ip", data.ip);
           update("geo", data.city + ", " + data.country);
