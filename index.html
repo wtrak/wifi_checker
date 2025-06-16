@@ -91,7 +91,7 @@
 
       try {
         const dlStart = Date.now();
-        const dl = await fetch("https://speed.hetzner.de/100MB.bin");
+        const dl = await fetch("https://ipv4.download.thinkbroadband.com/10MB.zip");
         const reader = dl.body.getReader();
         let received = 0;
         let result;
@@ -121,9 +121,8 @@
       }
 
       try {
-        const cpTest = await fetch("http://detectportal.firefox.com/success.txt");
-        const text = await cpTest.text();
-        document.getElementById("captive").textContent = text.includes("success") ? "No" : "Yes";
+        const cpTest = await fetch("https://www.gstatic.com/generate_204");
+        document.getElementById("captive").textContent = cpTest.status === 204 ? "No" : "Yes";
       } catch {
         document.getElementById("captive").textContent = "Likely";
       }
@@ -142,3 +141,4 @@
   </script>
 </body>
 </html>
+
