@@ -78,12 +78,10 @@
 
   <script>
     const check = async () => {
-      const startTime = Date.now();
-      let latency = 0;
       try {
         const pingStart = performance.now();
         await fetch("https://www.google.com", { mode: "no-cors" });
-        latency = Math.round(performance.now() - pingStart);
+        const latency = Math.round(performance.now() - pingStart);
         document.getElementById("ping").textContent = `${latency} ms`;
       } catch {
         document.getElementById("ping").textContent = "Failed";
@@ -91,7 +89,7 @@
 
       try {
         const dlStart = Date.now();
-        const dl = await fetch("https://ipv4.download.thinkbroadband.com/10MB.zip");
+        const dl = await fetch("https://speed.cloudflare.com/__down?bytes=10000000");
         const reader = dl.body.getReader();
         let received = 0;
         let result;
@@ -121,10 +119,12 @@
       }
 
       try {
-        const cpTest = await fetch("https://www.gstatic.com/generate_204");
-        document.getElementById("captive").textContent = cpTest.status === 204 ? "No" : "Yes";
+        const img = new Image();
+        img.onload = () => document.getElementById("captive").textContent = "No";
+        img.onerror = () => document.getElementById("captive").textContent = "Likely";
+        img.src = "https://www.gstatic.com/generate_204?" + new Date().getTime();
       } catch {
-        document.getElementById("captive").textContent = "Likely";
+        document.getElementById("captive").textContent = "Unknown";
       }
 
       try {
@@ -141,4 +141,3 @@
   </script>
 </body>
 </html>
-
