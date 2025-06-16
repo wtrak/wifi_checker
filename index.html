@@ -52,6 +52,11 @@
     <p>Streaming test (video ping): <span id="video" class="result loading">Checking...</span></p>
     <p>CDN Reachability (Cloudflare): <span id="cdn" class="result loading">Checking...</span></p>
     <p>Port 3000 open: <span id="port3000" class="result loading">Checking...</span></p>
+    <p>Captive Portal Detected: <span id="captive" class="loading">Checking...</span></p>
+    <p>VPN/Proxy Detected: <span id="vpn" class="loading">Checking...</span></p>
+    <p>Ping Latency: <span id="ping" class="loading">Checking...</span></p>
+    <p>Download Speed: <span id="download" class="loading">Measuring...</span></p>
+    <p>Upload Speed: <span id="upload" class="loading">Measuring...</span></p>
   </div>
 
   <div class="section">
@@ -73,122 +78,63 @@
 
   <script>
     const check = async () => {
-      // Basic Tests
+      const startTime = Date.now();
+      let latency = 0;
       try {
+        const pingStart = performance.now();
         await fetch("https://www.google.com", { mode: "no-cors" });
-        document.getElementById("google").textContent = "Accessible";
+        latency = Math.round(performance.now() - pingStart);
+        document.getElementById("ping").textContent = `${latency} ms`;
       } catch {
-        document.getElementById("google").textContent = "Blocked";
-        document.getElementById("google").classList.add("fail");
+        document.getElementById("ping").textContent = "Failed";
       }
 
       try {
-        await fetch("https://www.youtube.com", { mode: "no-cors" });
-        document.getElementById("youtube").textContent = "Accessible";
+        const dlStart = Date.now();
+        const dl = await fetch("https://speed.hetzner.de/100MB.bin");
+        const reader = dl.body.getReader();
+        let received = 0;
+        let result;
+        while (!(result = await reader.read()).done) {
+          received += result.value.length;
+        }
+        const duration = (Date.now() - dlStart) / 1000;
+        const mbps = ((received * 8) / 1024 / 1024 / duration).toFixed(2);
+        document.getElementById("download").textContent = `${mbps} Mbps`;
       } catch {
-        document.getElementById("youtube").textContent = "Blocked";
-        document.getElementById("youtube").classList.add("fail");
+        document.getElementById("download").textContent = "Failed";
       }
 
       try {
-        const ws = new WebSocket("wss://echo.websocket.org");
-        ws.onopen = () => {
-          document.getElementById("ws").textContent = "Supported";
-          ws.close();
-        };
-        ws.onerror = () => {
-          document.getElementById("ws").textContent = "Blocked or Failed";
-          document.getElementById("ws").classList.add("fail");
-        };
-      } catch {
-        document.getElementById("ws").textContent = "Not Supported";
-        document.getElementById("ws").classList.add("fail");
-      }
-
-      try {
-        await fetch("https://example.com", { mode: "no-cors" });
-        document.getElementById("dns").textContent = "Resolving";
-      } catch {
-        document.getElementById("dns").textContent = "Failed";
-        document.getElementById("dns").classList.add("fail");
-      }
-
-      if (location.protocol === 'https:') {
-        document.getElementById("https").textContent = "Yes";
-      } else {
-        document.getElementById("https").textContent = "No";
-        document.getElementById("https").classList.add("fail");
-      }
-
-      try {
-        const cdnTest = await fetch("https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js", { mode: "no-cors" });
-        document.getElementById("cdn").textContent = "Reachable";
-      } catch {
-        document.getElementById("cdn").textContent = "Blocked";
-        document.getElementById("cdn").classList.add("fail");
-      }
-
-      try {
-        await fetch("https://www.w3schools.com/html/mov_bbb.mp4", { method: 'HEAD', mode: 'no-cors' });
-        document.getElementById("video").textContent = "Reachable";
-      } catch {
-        document.getElementById("video").textContent = "Blocked or Throttled";
-        document.getElementById("video").classList.add("fail");
-      }
-
-      // Port test (client-side fake)
-      try {
-        const img = new Image();
-        img.src = "http://localhost:3000/favicon.ico";
-        img.onerror = () => document.getElementById("port3000").textContent = "Likely Blocked";
-        img.onload = () => document.getElementById("port3000").textContent = "Possibly Open";
-      } catch {
-        document.getElementById("port3000").textContent = "Check Failed";
-      }
-
-      // Environment info
-      document.getElementById("dnt").textContent = navigator.doNotTrack === "1" ? "Yes" : "No";
-      document.getElementById("screen").textContent = `${screen.width}x${screen.height}`;
-      document.getElementById("timezone").textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      // IP Info
-      try {
-        const ipRes = await fetch("https://ipapi.co/json/");
-        const ipData = await ipRes.json();
-        document.getElementById("ip").textContent = ipData.ip;
-        document.getElementById("geo").textContent = `${ipData.city}, ${ipData.country_name}`;
-        document.getElementById("isp").textContent = ipData.org;
-
-        let score = 0;
-        if (ipData.country_code === "US" || ipData.country_code === "PL") score++;
-        if (!ipData.org.toLowerCase().includes("school") && !ipData.org.toLowerCase().includes("proxy")) score++;
-
-        const tests = ["google", "youtube", "ws", "dns", "cdn", "video"];
-        tests.forEach(id => {
-          if (!document.getElementById(id).classList.contains("fail")) score++;
+        const blob = new Blob([new Uint8Array(1024 * 1024)]);
+        const start = Date.now();
+        await fetch("https://httpbin.org/post", {
+          method: 'POST',
+          body: blob,
         });
-
-        document.getElementById("trust").textContent = score >= 6 ? "✅ Trusted / Safe Network" : score >= 4 ? "⚠️ Limited / Cautious Use" : "❌ Untrusted or Restricted Network";
-        document.getElementById("work").textContent = score >= 5 ? "✅ Yes, this network is suitable for work." : "⚠️ Might not be ideal for work tasks.";
-
+        const end = Date.now();
+        const time = (end - start) / 1000;
+        const mbps = ((8 * blob.size) / 1024 / 1024 / time).toFixed(2);
+        document.getElementById("upload").textContent = `${mbps} Mbps`;
       } catch {
-        document.getElementById("ip").textContent = "Unknown";
-        document.getElementById("geo").textContent = "Unavailable";
-        document.getElementById("isp").textContent = "Unknown";
-        document.getElementById("trust").textContent = "❌ Cannot determine trust level.";
-        document.getElementById("work").textContent = "⚠️ No network profile available.";
+        document.getElementById("upload").textContent = "Failed";
       }
 
-      // IPv6 detection
       try {
-        fetch("https://[2606:4700::6810:474]/", { mode: "no-cors" })
-          .then(() => document.getElementById("ipv6").textContent = "Yes")
-          .catch(() => {
-            document.getElementById("ipv6").textContent = "No";
-            document.getElementById("ipv6").classList.add("fail");
-          });
+        const cpTest = await fetch("http://detectportal.firefox.com/success.txt");
+        const text = await cpTest.text();
+        document.getElementById("captive").textContent = text.includes("success") ? "No" : "Yes";
       } catch {
-        document.getElementById("ipv6").textContent = "Check Failed";
+        document.getElementById("captive").textContent = "Likely";
+      }
+
+      try {
+        const vpnCheck = await fetch("https://ipapi.co/json/");
+        const vpnData = await vpnCheck.json();
+        const isVPN = vpnData.org.toLowerCase().includes("vpn") || vpnData.org.toLowerCase().includes("proxy");
+        document.getElementById("vpn").textContent = isVPN ? "Yes" : "No";
+      } catch {
+        document.getElementById("vpn").textContent = "Unknown";
       }
     };
 
