@@ -77,67 +77,139 @@
   </div>
 
   <script>
-    const check = async () => {
-      try {
-        const pingStart = performance.now();
-        await fetch("https://www.google.com", { mode: "no-cors" });
-        const latency = Math.round(performance.now() - pingStart);
-        document.getElementById("ping").textContent = `${latency} ms`;
-      } catch {
-        document.getElementById("ping").textContent = "Failed";
-      }
+    window.addEventListener('DOMContentLoaded', () => {
+      const update = (id, value, fail = false) => {
+        const el = document.getElementById(id);
+        el.textContent = value;
+        if (fail) el.classList.add("fail");
+      };
 
-      try {
-        const dlStart = Date.now();
-        const dl = await fetch("https://speed.cloudflare.com/__down?bytes=10000000");
-        const reader = dl.body.getReader();
-        let received = 0;
-        let result;
-        while (!(result = await reader.read()).done) {
-          received += result.value.length;
+      const check = async () => {
+        try {
+          await fetch("https://www.google.com", { mode: "no-cors" });
+          update("google", "Accessible");
+        } catch {
+          update("google", "Blocked", true);
         }
-        const duration = (Date.now() - dlStart) / 1000;
-        const mbps = ((received * 8) / 1024 / 1024 / duration).toFixed(2);
-        document.getElementById("download").textContent = `${mbps} Mbps`;
-      } catch {
-        document.getElementById("download").textContent = "Failed";
-      }
 
-      try {
-        const blob = new Blob([new Uint8Array(1024 * 1024)]);
-        const start = Date.now();
-        await fetch("https://httpbin.org/post", {
-          method: 'POST',
-          body: blob,
-        });
-        const end = Date.now();
-        const time = (end - start) / 1000;
-        const mbps = ((8 * blob.size) / 1024 / 1024 / time).toFixed(2);
-        document.getElementById("upload").textContent = `${mbps} Mbps`;
-      } catch {
-        document.getElementById("upload").textContent = "Failed";
-      }
+        try {
+          await fetch("https://www.youtube.com", { mode: "no-cors" });
+          update("youtube", "Accessible");
+        } catch {
+          update("youtube", "Blocked", true);
+        }
 
-      try {
+        try {
+          const ws = new WebSocket("wss://echo.websocket.events");
+          ws.onopen = () => {
+            update("ws", "Supported");
+            ws.close();
+          };
+          ws.onerror = () => update("ws", "Blocked or Failed", true);
+        } catch {
+          update("ws", "Not Supported", true);
+        }
+
+        try {
+          await fetch("https://example.com", { mode: "no-cors" });
+          update("dns", "Resolving");
+        } catch {
+          update("dns", "Failed", true);
+        }
+
+        update("https", location.protocol === 'https:' ? "Yes" : "No", location.protocol !== 'https:');
+
+        try {
+          await fetch("https://www.w3schools.com/html/mov_bbb.mp4", { method: 'HEAD', mode: 'no-cors' });
+          update("video", "Reachable");
+        } catch {
+          update("video", "Blocked or Throttled", true);
+        }
+
+        try {
+          await fetch("https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js", { mode: "no-cors" });
+          update("cdn", "Reachable");
+        } catch {
+          update("cdn", "Blocked", true);
+        }
+
         const img = new Image();
-        img.onload = () => document.getElementById("captive").textContent = "No";
-        img.onerror = () => document.getElementById("captive").textContent = "Likely";
+        img.onload = () => update("captive", "No");
+        img.onerror = () => update("captive", "Likely", true);
         img.src = "https://www.gstatic.com/generate_204?" + new Date().getTime();
-      } catch {
-        document.getElementById("captive").textContent = "Unknown";
-      }
 
-      try {
-        const vpnCheck = await fetch("https://ipapi.co/json/");
-        const vpnData = await vpnCheck.json();
-        const isVPN = vpnData.org.toLowerCase().includes("vpn") || vpnData.org.toLowerCase().includes("proxy");
-        document.getElementById("vpn").textContent = isVPN ? "Yes" : "No";
-      } catch {
-        document.getElementById("vpn").textContent = "Unknown";
-      }
-    };
+        try {
+          const vpnRes = await fetch("https://ipapi.co/json/");
+          const data = await vpnRes.json();
+          update("ip", data.ip);
+          update("geo", `${data.city}, ${data.country_name}`);
+          update("isp", data.org);
+          const isVPN = /vpn|proxy|hosting/i.test(data.org);
+          update("vpn", isVPN ? "Yes" : "No", isVPN);
+        } catch {
+          update("ip", "Unknown", true);
+          update("geo", "Unavailable", true);
+          update("isp", "Unknown", true);
+          update("vpn", "Unknown", true);
+        }
 
-    check();
+        try {
+          const start = performance.now();
+          await fetch("https://www.google.com", { mode: "no-cors" });
+          const ping = Math.round(performance.now() - start);
+          update("ping", `${ping} ms`);
+        } catch {
+          update("ping", "Failed", true);
+        }
+
+        try {
+          const start = Date.now();
+          const res = await fetch("https://speed.cloudflare.com/__down?bytes=10000000");
+          const reader = res.body.getReader();
+          let total = 0, chunk;
+          while (!(chunk = await reader.read()).done) total += chunk.value.length;
+          const duration = (Date.now() - start) / 1000;
+          const mbps = ((total * 8) / 1024 / 1024 / duration).toFixed(2);
+          update("download", `${mbps} Mbps`);
+        } catch {
+          update("download", "Failed", true);
+        }
+
+        try {
+          const blob = new Blob([new Uint8Array(1024 * 1024)]);
+          const start = Date.now();
+          await fetch("https://httpbin.org/post", {
+            method: 'POST',
+            body: blob,
+          });
+          const end = Date.now();
+          const mbps = ((8 * blob.size) / 1024 / 1024 / ((end - start) / 1000)).toFixed(2);
+          update("upload", `${mbps} Mbps`);
+        } catch {
+          update("upload", "Failed", true);
+        }
+
+        update("dnt", navigator.doNotTrack === "1" ? "Yes" : "No");
+        update("screen", `${screen.width}x${screen.height}`);
+        update("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+        try {
+          await fetch("https://ipv6.test-ipv6.com/ip/?callback=?", { mode: 'no-cors' });
+          update("ipv6", "Yes");
+        } catch {
+          update("ipv6", "No", true);
+        }
+
+        // Trust Score
+        const tests = ["google", "youtube", "ws", "dns", "cdn", "video", "download", "upload"];
+        let score = tests.reduce((sum, id) => sum + (!document.getElementById(id).classList.contains("fail") ? 1 : 0), 0);
+        document.getElementById("trust").textContent = score >= 6 ? "✅ Trusted / Safe Network" : score >= 4 ? "⚠️ Limited / Cautious Use" : "❌ Untrusted or Restricted Network";
+        document.getElementById("work").textContent = score >= 5 ? "✅ Yes, this network is suitable for work." : "⚠️ Might not be ideal for work tasks.";
+      };
+
+      check();
+    });
   </script>
 </body>
 </html>
+
