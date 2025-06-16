@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Can I Do That From This WiFi?</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
+      padding: 2rem;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+    }
+    .section {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1rem 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .result {
+      font-weight: bold;
+      color: green;
+    }
+    .fail {
+      color: red;
+    }
+    .summary {
+      font-size: 1.2rem;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Can I Do That From This WiFi?</h1>
+
+  <div class="section">
+    <h2>Connectivity Tests</h2>
+    <p>Google.com: <span id="google" class="result">Checking...</span></p>
+    <p>YouTube.com: <span id="youtube" class="result">Checking...</span></p>
+    <p>WebSocket support: <span id="ws" class="result">Checking...</span></p>
+    <p>DNS Resolution: <span id="dns" class="result">Checking...</span></p>
+    <p>HTTPS enforced: <span id="https" class="result">Checking...</span></p>
+  </div>
+
+  <div class="section">
+    <h2>Network Info</h2>
+    <p>Your public IP: <span id="ip">Checking...</span></p>
+    <p>Your ISP: <span id="isp">Checking...</span></p>
+    <p>Approx. Location: <span id="geo">Checking...</span></p>
+  </div>
+
+  <div class="section">
+    <h2>Security Trust Meter</h2>
+    <p class="summary" id="trust">Calculating...</p>
+    <p class="summary" id="work">Can I work from here? ...</p>
+  </div>
+
+  <script>
+    const check = async () => {
+      // Connectivity tests
+      try {
+        const g = await fetch("https://www.google.com", { mode: "no-cors" });
+        document.getElementById("google").textContent = "Accessible";
+      } catch {
+        document.getElementById("google").textContent = "Blocked";
+        document.getElementById("google").classList.add("fail");
+      }
+
+      try {
+        const y = await fetch("https://www.youtube.com", { mode: "no-cors" });
+        document.getElementById("youtube").textContent = "Accessible";
+      } catch {
+        document.getElementById("youtube").textContent = "Blocked";
+        document.getElementById("youtube").classList.add("fail");
+      }
+
+      try {
+        const ws = new WebSocket("wss://echo.websocket.org");
+        ws.onopen = () => {
+          document.getElementById("ws").textContent = "Supported";
+          ws.close();
+        };
+        ws.onerror = () => {
+          document.getElementById("ws").textContent = "Blocked or Failed";
+          document.getElementById("ws").classList.add("fail");
+        };
+      } catch {
+        document.getElementById("ws").textContent = "Not Supported";
+        document.getElementById("ws").classList.add("fail");
+      }
+
+      // DNS test (mocked via fetch to known domain)
+      try {
+        await fetch("https://example.com", { mode: "no-cors" });
+        document.getElementById("dns").textContent = "Resolving";
+      } catch {
+        document.getElementById("dns").textContent = "Failed";
+        document.getElementById("dns").classList.add("fail");
+      }
+
+      // HTTPS check
+      if (location.protocol === 'https:') {
+        document.getElementById("https").textContent = "Yes";
+      } else {
+        document.getElementById("https").textContent = "No";
+        document.getElementById("https").classList.add("fail");
+      }
+
+      // IP/Geo/ISP Info
+      try {
+        const ipRes = await fetch("https://ipapi.co/json/");
+        const ipData = await ipRes.json();
+        document.getElementById("ip").textContent = ipData.ip;
+        document.getElementById("geo").textContent = `${ipData.city}, ${ipData.country_name}`;
+        document.getElementById("isp").textContent = ipData.org;
+
+        // Scoring
+        let score = 0;
+        if (ipData.country_code === "US" || ipData.country_code === "PL") score++;
+        if (!ipData.org.toLowerCase().includes("school") && !ipData.org.toLowerCase().includes("proxy")) score++;
+
+        const googleOK = document.getElementById("google").textContent === "Accessible";
+        const ytOK = document.getElementById("youtube").textContent === "Accessible";
+        const wsOK = document.getElementById("ws").textContent.includes("Supported");
+
+        if (googleOK) score++;
+        if (ytOK) score++;
+        if (wsOK) score++;
+
+        document.getElementById("trust").textContent = score >= 4 ? "✅ Trusted / Safe Network" : score >= 2 ? "⚠️ Limited / Cautious Use" : "❌ Untrusted or Restricted Network";
+        document.getElementById("work").textContent = score >= 3 ? "✅ Yes, this network is suitable for work." : "⚠️ Might not be ideal for work tasks.";
+
+      } catch {
+        document.getElementById("ip").textContent = "Unknown";
+        document.getElementById("geo").textContent = "Unavailable";
+        document.getElementById("isp").textContent = "Unknown";
+        document.getElementById("trust").textContent = "❌ Cannot determine trust level.";
+        document.getElementById("work").textContent = "⚠️ No network profile available.";
+      }
+    };
+
+    check();
+  </script>
+</body>
+</html>
