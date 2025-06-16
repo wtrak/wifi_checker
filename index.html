@@ -34,6 +34,9 @@
       text-align: center;
       margin-top: 1rem;
     }
+    .loading {
+      color: gray;
+    }
   </style>
 </head>
 <body>
@@ -41,18 +44,25 @@
 
   <div class="section">
     <h2>Connectivity Tests</h2>
-    <p>Google.com: <span id="google" class="result">Checking...</span></p>
-    <p>YouTube.com: <span id="youtube" class="result">Checking...</span></p>
-    <p>WebSocket support: <span id="ws" class="result">Checking...</span></p>
-    <p>DNS Resolution: <span id="dns" class="result">Checking...</span></p>
-    <p>HTTPS enforced: <span id="https" class="result">Checking...</span></p>
+    <p>Google.com: <span id="google" class="result loading">Checking...</span></p>
+    <p>YouTube.com: <span id="youtube" class="result loading">Checking...</span></p>
+    <p>WebSocket support: <span id="ws" class="result loading">Checking...</span></p>
+    <p>DNS Resolution (example.com): <span id="dns" class="result loading">Checking...</span></p>
+    <p>HTTPS enforced: <span id="https" class="result loading">Checking...</span></p>
+    <p>Streaming test (video ping): <span id="video" class="result loading">Checking...</span></p>
+    <p>CDN Reachability (Cloudflare): <span id="cdn" class="result loading">Checking...</span></p>
+    <p>Port 3000 open: <span id="port3000" class="result loading">Checking...</span></p>
   </div>
 
   <div class="section">
     <h2>Network Info</h2>
-    <p>Your public IP: <span id="ip">Checking...</span></p>
-    <p>Your ISP: <span id="isp">Checking...</span></p>
-    <p>Approx. Location: <span id="geo">Checking...</span></p>
+    <p>Your public IP: <span id="ip" class="loading">Checking...</span></p>
+    <p>Your ISP: <span id="isp" class="loading">Checking...</span></p>
+    <p>Approx. Location: <span id="geo" class="loading">Checking...</span></p>
+    <p>IPv6 Enabled: <span id="ipv6" class="loading">Checking...</span></p>
+    <p>Do Not Track Enabled: <span id="dnt" class="loading">Checking...</span></p>
+    <p>Screen Resolution: <span id="screen" class="loading">Loading...</span></p>
+    <p>Timezone: <span id="timezone" class="loading">Loading...</span></p>
   </div>
 
   <div class="section">
@@ -63,9 +73,9 @@
 
   <script>
     const check = async () => {
-      // Connectivity tests
+      // Basic Tests
       try {
-        const g = await fetch("https://www.google.com", { mode: "no-cors" });
+        await fetch("https://www.google.com", { mode: "no-cors" });
         document.getElementById("google").textContent = "Accessible";
       } catch {
         document.getElementById("google").textContent = "Blocked";
@@ -73,7 +83,7 @@
       }
 
       try {
-        const y = await fetch("https://www.youtube.com", { mode: "no-cors" });
+        await fetch("https://www.youtube.com", { mode: "no-cors" });
         document.getElementById("youtube").textContent = "Accessible";
       } catch {
         document.getElementById("youtube").textContent = "Blocked";
@@ -95,7 +105,6 @@
         document.getElementById("ws").classList.add("fail");
       }
 
-      // DNS test (mocked via fetch to known domain)
       try {
         await fetch("https://example.com", { mode: "no-cors" });
         document.getElementById("dns").textContent = "Resolving";
@@ -104,7 +113,6 @@
         document.getElementById("dns").classList.add("fail");
       }
 
-      // HTTPS check
       if (location.protocol === 'https:') {
         document.getElementById("https").textContent = "Yes";
       } else {
@@ -112,7 +120,38 @@
         document.getElementById("https").classList.add("fail");
       }
 
-      // IP/Geo/ISP Info
+      try {
+        const cdnTest = await fetch("https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js", { mode: "no-cors" });
+        document.getElementById("cdn").textContent = "Reachable";
+      } catch {
+        document.getElementById("cdn").textContent = "Blocked";
+        document.getElementById("cdn").classList.add("fail");
+      }
+
+      try {
+        await fetch("https://www.w3schools.com/html/mov_bbb.mp4", { method: 'HEAD', mode: 'no-cors' });
+        document.getElementById("video").textContent = "Reachable";
+      } catch {
+        document.getElementById("video").textContent = "Blocked or Throttled";
+        document.getElementById("video").classList.add("fail");
+      }
+
+      // Port test (client-side fake)
+      try {
+        const img = new Image();
+        img.src = "http://localhost:3000/favicon.ico";
+        img.onerror = () => document.getElementById("port3000").textContent = "Likely Blocked";
+        img.onload = () => document.getElementById("port3000").textContent = "Possibly Open";
+      } catch {
+        document.getElementById("port3000").textContent = "Check Failed";
+      }
+
+      // Environment info
+      document.getElementById("dnt").textContent = navigator.doNotTrack === "1" ? "Yes" : "No";
+      document.getElementById("screen").textContent = `${screen.width}x${screen.height}`;
+      document.getElementById("timezone").textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      // IP Info
       try {
         const ipRes = await fetch("https://ipapi.co/json/");
         const ipData = await ipRes.json();
@@ -120,21 +159,17 @@
         document.getElementById("geo").textContent = `${ipData.city}, ${ipData.country_name}`;
         document.getElementById("isp").textContent = ipData.org;
 
-        // Scoring
         let score = 0;
         if (ipData.country_code === "US" || ipData.country_code === "PL") score++;
         if (!ipData.org.toLowerCase().includes("school") && !ipData.org.toLowerCase().includes("proxy")) score++;
 
-        const googleOK = document.getElementById("google").textContent === "Accessible";
-        const ytOK = document.getElementById("youtube").textContent === "Accessible";
-        const wsOK = document.getElementById("ws").textContent.includes("Supported");
+        const tests = ["google", "youtube", "ws", "dns", "cdn", "video"];
+        tests.forEach(id => {
+          if (!document.getElementById(id).classList.contains("fail")) score++;
+        });
 
-        if (googleOK) score++;
-        if (ytOK) score++;
-        if (wsOK) score++;
-
-        document.getElementById("trust").textContent = score >= 4 ? "✅ Trusted / Safe Network" : score >= 2 ? "⚠️ Limited / Cautious Use" : "❌ Untrusted or Restricted Network";
-        document.getElementById("work").textContent = score >= 3 ? "✅ Yes, this network is suitable for work." : "⚠️ Might not be ideal for work tasks.";
+        document.getElementById("trust").textContent = score >= 6 ? "✅ Trusted / Safe Network" : score >= 4 ? "⚠️ Limited / Cautious Use" : "❌ Untrusted or Restricted Network";
+        document.getElementById("work").textContent = score >= 5 ? "✅ Yes, this network is suitable for work." : "⚠️ Might not be ideal for work tasks.";
 
       } catch {
         document.getElementById("ip").textContent = "Unknown";
@@ -142,6 +177,18 @@
         document.getElementById("isp").textContent = "Unknown";
         document.getElementById("trust").textContent = "❌ Cannot determine trust level.";
         document.getElementById("work").textContent = "⚠️ No network profile available.";
+      }
+
+      // IPv6 detection
+      try {
+        fetch("https://[2606:4700::6810:474]/", { mode: "no-cors" })
+          .then(() => document.getElementById("ipv6").textContent = "Yes")
+          .catch(() => {
+            document.getElementById("ipv6").textContent = "No";
+            document.getElementById("ipv6").classList.add("fail");
+          });
+      } catch {
+        document.getElementById("ipv6").textContent = "Check Failed";
       }
     };
 
